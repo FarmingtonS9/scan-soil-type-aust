@@ -1,14 +1,13 @@
 //Standard crates
 
-use std::fs::File;
-
 //Third-party crates
 use image::ColorType;
 use image::GenericImageView;
 use image::Rgba;
 
 //Constants
-const FILE_NAME: &str = r"foo.png";
+const RAW_IMG_FILE: &str = r"foo.png";
+const ALL_PIXELS_CLASSIFIED_IMG: &str = r"bar.png";
 
 const VERTOSOL: [u8; 4] = [204, 204, 179, 255];
 const SODOSOL: [u8; 4] = [153, 102, 25, 255];
@@ -22,16 +21,20 @@ const HYDROSOL: [u8; 4] = [128, 255, 217, 255];
 const RUDOSOL: [u8; 4] = [204, 255, 102, 255];
 const CALCARASOL: [u8; 4] = [255, 204, 204, 255];
 const ORGANOSOL: [u8; 4] = [255, 102, 51, 255];
-const WHITE: [u8; 4] = [255, 255, 255, 255];
+//const ANTHROPOSOL: [u8; 4] = []; Can't find value on map
+const WHITE: [u8; 4] = [255, 255, 255, 255]; //Used to mark water
+const BLACK: [u8; 4] = [0, 0, 0, 255];
 
 fn main() {
     //Open png file
-    let img = image::open(FILE_NAME).expect("File not found!"); //Image is 24-bit depth (8-bit per channel). No alpha.
+    let img = image::open(RAW_IMG_FILE).expect("Could not open file!"); //Image is 24-bit depth (8-bit per channel). No alpha.
 
     //Get dimensions for limiting the scan range.
     let (width, height) = img.dimensions(); //Tuple of dimension w x h
-                                            //Getting colour type
+
+    //Getting colour type
     let colour_type = img.color();
+
     //Calculate number of pixels
     let num_of_pixels: usize = (width * height).try_into().unwrap();
 
@@ -65,26 +68,36 @@ fn main() {
     let mut other_pixel_vec: Vec<PixelInfo> = Vec::new();
 
     for pixel in img.pixels() {
-        let temp_pix = PixelInfo {
+        let pixel_info = PixelInfo {
             x: pixel.0,
             y: pixel.1,
             colour: pixel.2,
         };
+        pixel_vec.push(pixel_info)
+    }
+
+    //display_pixel_list(pixel_vec);
+    pixel_vec = change_colour_value_of_unassigned_pixel(pixel_vec);
+
+    for temp_pix in pixel_vec.iter_mut() {
         match temp_pix.colour.0 {
-            VERTOSOL => vertosol_pixel_vec.push(temp_pix),
-            SODOSOL => sodosol_pixel_vec.push(temp_pix),
-            DERMOSOL => dermosol_pixel_vec.push(temp_pix),
-            CHROMOSOL => chromosol_pixel_vec.push(temp_pix),
-            FERROSOL => ferrosol_pixel_vec.push(temp_pix),
-            KUROSOL => kurosol_pixel_vec.push(temp_pix),
-            TENOSOL => tenosol_pixel_vec.push(temp_pix),
-            KANDOSOL => kandosol_pixel_vec.push(temp_pix),
-            HYDROSOL => hydrosol_pixel_vec.push(temp_pix),
-            RUDOSOL => rudosol_pixel_vec.push(temp_pix),
-            CALCARASOL => calcarasol_pixel_vec.push(temp_pix),
-            ORGANOSOL => organosol_pixel_vec.push(temp_pix),
-            WHITE => white_pixel_vec.push(temp_pix),
-            _ => other_pixel_vec.push(temp_pix),
+            VERTOSOL => vertosol_pixel_vec.push(*temp_pix),
+            SODOSOL => sodosol_pixel_vec.push(*temp_pix),
+            DERMOSOL => dermosol_pixel_vec.push(*temp_pix),
+            CHROMOSOL => chromosol_pixel_vec.push(*temp_pix),
+            FERROSOL => ferrosol_pixel_vec.push(*temp_pix),
+            KUROSOL => kurosol_pixel_vec.push(*temp_pix),
+            TENOSOL => tenosol_pixel_vec.push(*temp_pix),
+            KANDOSOL => kandosol_pixel_vec.push(*temp_pix),
+            HYDROSOL => hydrosol_pixel_vec.push(*temp_pix),
+            RUDOSOL => rudosol_pixel_vec.push(*temp_pix),
+            CALCARASOL => calcarasol_pixel_vec.push(*temp_pix),
+            ORGANOSOL => organosol_pixel_vec.push(*temp_pix),
+            WHITE => white_pixel_vec.push(*temp_pix),
+            _ => {
+                //This arm collects unassigned pixels.
+                other_pixel_vec.push(*temp_pix)
+            }
         }
     }
 
@@ -103,7 +116,7 @@ fn main() {
         + white_pixel_vec.len();
 
     println!(
-        "Unclassified pixels: {}",
+        "Unclassified pixels: {:?}",
         unclassified_num_of_pixels(num_of_pixels, number_of_pixels_counted)
     );
 }
@@ -119,10 +132,36 @@ fn display_pixel_list(pixel_vec: Vec<PixelInfo>) {
     }
 }
 
+//fn find_location_of_unassigned_pixels();
+
+fn change_colour_value_of_unassigned_pixel(mut pixel_vec: Vec<PixelInfo>) -> Vec<PixelInfo> {
+    let mut num_of_changes: u32 = 0;
+    //Take in the full vector of pixels of the image.
+    //Compare each pixel to the constants above
+    for pixel in pixel_vec.iter_mut() {
+        let colour_value = pixel.colour.0;
+
+        match colour_value {
+            VERTOSOL | SODOSOL | DERMOSOL | CHROMOSOL | FERROSOL | KUROSOL | TENOSOL | KANDOSOL
+            | HYDROSOL | RUDOSOL | CALCARASOL | WHITE => {
+                continue;
+            }
+            _ => {
+                pixel.colour.0 = VERTOSOL; //If pixel is found to not be any of the constants, change the colour field of the PixelInfo to the colour constant that came before it. (Simple, easy fox for now).
+                num_of_changes += 1;
+            }
+        }
+    }
+    //Output updated vector of pixels
+    println!("Number of changes made: {}", num_of_changes);
+    pixel_vec
+}
+
 fn unclassified_num_of_pixels(num_of_pixels: usize, number_of_pixels_counted: usize) -> usize {
     num_of_pixels - number_of_pixels_counted
 }
 
+#[derive(Clone, Copy)]
 struct PixelInfo {
     x: u32,
     y: u32,
@@ -156,6 +195,7 @@ enum Classification {
     Podosol,
     Calcarasol,
     Organosol,
-    Anthrosol,
+    Anthroposol,
+    White,
     Unknown,
 }
